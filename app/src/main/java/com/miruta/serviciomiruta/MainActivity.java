@@ -49,6 +49,11 @@ public class MainActivity extends AppCompatActivity {
         ButterKnife.bind(this);
 
 
+        if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},15);
+        }
+
+
         final Animation pulseAnimation = new ScaleAnimation(1,0.95f,1,0.95f,Animation.RELATIVE_TO_SELF,0.5f,Animation.RELATIVE_TO_SELF,0.5f);
         pulseAnimation.setRepeatMode(Animation.REVERSE);
         pulseAnimation.setRepeatCount(Animation.INFINITE);
@@ -61,44 +66,63 @@ public class MainActivity extends AppCompatActivity {
         alphaPulse.setDuration(600);
         alphaPulse.setInterpolator(new AccelerateInterpolator(0.5f));
 
+        final Animation clickAnimation = new ScaleAnimation(0.95f,1,0.95f,1,Animation.RELATIVE_TO_SELF,0.5f,Animation.RELATIVE_TO_SELF,0.5f);
+        clickAnimation.setDuration(300);
+        clickAnimation.setInterpolator(new AccelerateInterpolator(0.8f));
+
         final Intent serv = new Intent(getApplicationContext(),BackgroundService.class);
+        SharedPreferences sharedPref = getSharedPreferences("ServicioMiRuta", Context.MODE_PRIVATE);
+        String idUnidad = sharedPref.getString("idUnidad","");
+        idUnidadEditText.setText(idUnidad);
+        idUnidadText.setText(idUnidad);
 
 
         final ServiceConnection serviceConnection = new ServiceConnection() {
             @Override
             public void onServiceConnected(ComponentName name, IBinder service) {
+                BackgroundService.LocalBinder binder = (BackgroundService.LocalBinder) service;
+                binder.getService().setAnimation(new BackgroundService.OnConnectedService() {
+                    @Override
+                    public void run() {
 
+                        Log.d("Service","Started");
+                        sendingData.setVisibility(View.VISIBLE);
+                        animating =true;
+                        miruta.startAnimation(pulseAnimation);
+                        sendingData.startAnimation(alphaPulse);
+                    }
+                    @Override
+                    public void stop() {
+
+                        Log.d("Service","Stopped");
+                        sendingData.setVisibility(View.GONE);
+                        animating =false;
+                        miruta.clearAnimation();
+                        sendingData.clearAnimation();
+                    }
+                });
             }
 
             @Override
             public void onServiceDisconnected(ComponentName name) {
-                sendingData.setVisibility(View.GONE);
-                animating =false;
-                miruta.clearAnimation();
-                sendingData.clearAnimation();
+
             }
         };
 
         miruta.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if(animating){
-                    sendingData.setVisibility(View.GONE);
-                    animating =false;
-                    stopService(serv);
-                    miruta.clearAnimation();
-                    sendingData.clearAnimation();
-                }else{
-                    if (ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},15);
-                    }
 
-                    sendingData.setVisibility(View.VISIBLE);
-                    animating =true;
-                    stopService(serv);
+                miruta.startAnimation(clickAnimation);
+                if(animating){
+                    Log.d("MainActivity","trying to stop");
+                    unbindService(serviceConnection);
+                }else{
+                    Log.d("MainActivity","trying to bind");
+                    if(isMyServiceRunning(BackgroundService.class)){
+                        unbindService(serviceConnection);
+                    }
                     bindService(serv,serviceConnection,BIND_AUTO_CREATE);
-                    miruta.startAnimation(pulseAnimation);
-                    sendingData.startAnimation(alphaPulse);
                 }
             }
         });
@@ -144,9 +168,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         if(isMyServiceRunning(BackgroundService.class)){
-            animating =true;
-            miruta.startAnimation(pulseAnimation);
-            sendingData.startAnimation(alphaPulse);
+            bindService(serv,serviceConnection,BIND_AUTO_CREATE);
         }
     }
     private boolean isMyServiceRunning(Class<?> serviceClass) {
@@ -157,5 +179,9 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return false;
+    }
+    @Override
+    public void onBackPressed() {
+        moveTaskToBack(true);
     }
 }

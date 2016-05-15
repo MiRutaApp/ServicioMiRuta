@@ -14,7 +14,7 @@ public class MainApplication extends Application {
         super.onCreate();
         Parse.initialize(new Parse.Configuration.Builder(getApplicationContext())
                 .applicationId("449e9382040418fff7bd75dfae5c6a7260abbc69")
-                .server("http://miruta.frikicorp.com/parse")
+                .server("http://miruta.frikicorp.com/parse/")
         .build());
     }
 }
